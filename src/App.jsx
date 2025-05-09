@@ -2,12 +2,11 @@ import "./App.css";
 import { useEffect, useState } from "react";
 import { Container } from "react-bootstrap";
 import Loading from "./components/Loading";
-
 import Header from "./components/Header";
 import SearchBar from "./components/SearchBar";
-import AlbumList from "./components/AlbumList";
-import Pagination from "./components/Pagination";
 import ErrorAlert from "./components/ErrorAlert";
+import BookmarkButton from "./components/BookmarkButton";
+import AlbumGrid from "./components/AlbumGrid";
 
 import {
   fetchAccessToken,
@@ -21,19 +20,26 @@ function App() {
   const [albums, setAlbums] = useState([]);
   const [errorMessage, setErrorMessage] = useState("");
   const [loading, setLoading] = useState(false);
-  const [currentPage, setCurrentPage] = useState(1); // State for current page
-
-  const albumsPerPage = 8; // Albums per page
+  const [bookmarkedAlbums, setBookmarkedAlbums] = useState([]);
+  const [showBookmarked, setShowBookmarked] = useState(false);
 
   useEffect(() => {
     fetchAccessToken().then(setAccessToken);
+    const savedAlbums = localStorage.getItem("bookmarkedAlbums");
+    if (savedAlbums) {
+      setBookmarkedAlbums(JSON.parse(savedAlbums));
+    }
   }, []);
+
+  useEffect(() => {
+    localStorage.setItem("bookmarkedAlbums", JSON.stringify(bookmarkedAlbums));
+  }, [bookmarkedAlbums]);
 
   const search = async () => {
     setErrorMessage("");
     setAlbums([]);
     setLoading(true);
-    setCurrentPage(1); // Reset to the first page on a new search
+    setShowBookmarked(false);
 
     try {
       const artistID = await fetchArtistId(searchInput, accessToken);
@@ -51,35 +57,54 @@ function App() {
     }
   };
 
-  // Calculate the albums to display for the current page
-  const indexOfLastAlbum = currentPage * albumsPerPage;
-  const indexOfFirstAlbum = indexOfLastAlbum - albumsPerPage;
-  const currentAlbums = albums.slice(indexOfFirstAlbum, indexOfLastAlbum);
+  const toggleBookmark = (album) => {
+    setBookmarkedAlbums((prev) => {
+      const isBookmarked = prev.some((a) => a.id === album.id);
+      if (isBookmarked) {
+        return prev.filter((a) => a.id !== album.id);
+      } else {
+        return [...prev, album];
+      }
+    });
+  };
 
-  // Calculate total pages
-  const totalPages = Math.ceil(albums.length / albumsPerPage);
+  const isAlbumBookmarked = (album) => {
+    return bookmarkedAlbums.some((a) => a.id === album.id);
+  };
 
   return (
     <>
+      <BookmarkButton
+        showBookmarked={showBookmarked}
+        toggleShowBookmarked={() => setShowBookmarked(!showBookmarked)}
+      />
       <Header showHeader={albums.length === 0 && !loading && !errorMessage} />
       <Container>
-        <SearchBar value={searchInput} onChange={setSearchInput} onSearch={search} />
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            marginBottom: "20px",
+          }}
+        >
+          <SearchBar
+            value={searchInput}
+            onChange={setSearchInput}
+            onSearch={search}
+          />
+        </div>
       </Container>
       <Container>
         <ErrorAlert message={errorMessage} />
         {loading ? (
           <Loading />
         ) : (
-          <>
-            <AlbumList albums={currentAlbums} />
-            {albums.length > albumsPerPage && (
-              <Pagination
-                totalPages={totalPages}
-                currentPage={currentPage}
-                onPageChange={setCurrentPage}
-              />
-            )}
-          </>
+          <AlbumGrid
+            albums={showBookmarked ? bookmarkedAlbums : albums}
+            toggleBookmark={toggleBookmark}
+            isAlbumBookmarked={isAlbumBookmarked}
+          />
         )}
       </Container>
     </>
