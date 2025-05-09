@@ -14,6 +14,8 @@ import {
   fetchArtistAlbums,
 } from "./api/spotify";
 
+import Pagination from "./components/Pagination"; // Import the Pagination component
+
 function App() {
   const [searchInput, setSearchInput] = useState("");
   const [accessToken, setAccessToken] = useState("");
@@ -22,6 +24,10 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [bookmarkedAlbums, setBookmarkedAlbums] = useState([]);
   const [showBookmarked, setShowBookmarked] = useState(false);
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10; // Number of albums per page
 
   useEffect(() => {
     fetchAccessToken().then(setAccessToken);
@@ -49,6 +55,7 @@ function App() {
         setErrorMessage("This artist has no albums.");
       } else {
         setAlbums(albumData);
+        setCurrentPage(1); // Reset to the first page
       }
     } catch (error) {
       setErrorMessage(error.message);
@@ -71,6 +78,21 @@ function App() {
   const isAlbumBookmarked = (album) => {
     return bookmarkedAlbums.some((a) => a.id === album.id);
   };
+
+  // Pagination logic
+  const displayedAlbums = showBookmarked
+    ? bookmarkedAlbums.slice(
+        (currentPage - 1) * itemsPerPage,
+        currentPage * itemsPerPage
+      )
+    : albums.slice(
+        (currentPage - 1) * itemsPerPage,
+        currentPage * itemsPerPage
+      );
+
+  const totalPages = Math.ceil(
+    (showBookmarked ? bookmarkedAlbums.length : albums.length) / itemsPerPage
+  );
 
   return (
     <>
@@ -100,11 +122,18 @@ function App() {
         {loading ? (
           <Loading />
         ) : (
-          <AlbumGrid
-            albums={showBookmarked ? bookmarkedAlbums : albums}
-            toggleBookmark={toggleBookmark}
-            isAlbumBookmarked={isAlbumBookmarked}
-          />
+          <>
+            <AlbumGrid
+              albums={displayedAlbums}
+              toggleBookmark={toggleBookmark}
+              isAlbumBookmarked={isAlbumBookmarked}
+            />
+            <Pagination
+              totalPages={totalPages}
+              currentPage={currentPage}
+              onPageChange={setCurrentPage}
+            />
+          </>
         )}
       </Container>
     </>
